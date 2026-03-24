@@ -1,0 +1,58 @@
+[package]
+name = "hivefuzz"
+version = "0.1.0"
+edition = "2024"
+description = "Autonomous distributed fuzzing swarm — leaderless vulnerability discovery"
+repository = "https://github.com/aradex-io/project-hivefuzz"
+license-file = "LICENSE"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+prost = "0.13"
+bincode = "1"
+
+# Crypto — node identity & gossip authentication
+ed25519-dalek = { version = "2", features = ["serde"] }
+rand = "0.8"
+
+# Coverage bitmap & hashing
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
+
+# Crash storage
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Logging & tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Error handling
+anyhow = "1"
+thiserror = "2"
+
+# Unique IDs
+uuid = { version = "1", features = ["v4", "serde"] }
+
+# Metrics
+prometheus = "0.13"
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+[dev-dependencies]
+tempfile = "3"
+tokio-test = "0.4"
+
+[build-dependencies]
+prost-build = "0.13"
+
+[[bin]]
+name = "hivefuzz"
+path = "src/main.rs"
