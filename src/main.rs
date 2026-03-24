@@ -26,9 +26,9 @@ enum Commands {
 
     /// Start a hivefuzz node
     Run {
-        /// Path to target configuration file
-        #[arg(long)]
-        target: String,
+        /// Path to hivefuzz.toml configuration file
+        #[arg(long, default_value = "hivefuzz.toml")]
+        config: String,
 
         /// Seed nodes for initial swarm discovery (host:port)
         #[arg(long, value_delimiter = ',')]
@@ -49,9 +49,9 @@ enum Commands {
         #[arg(long, default_value = "3")]
         nodes: u32,
 
-        /// Path to target configuration file
-        #[arg(long)]
-        target: String,
+        /// Path to hivefuzz.toml configuration file
+        #[arg(long, default_value = "hivefuzz.toml")]
+        config: String,
     },
 
     /// Show node/swarm status
@@ -76,17 +76,17 @@ async fn main() -> Result<()> {
             hivefuzz::commands::init::run(&target, corpus.as_deref()).await?;
         }
         Commands::Run {
-            target,
+            config,
             seeds,
             port,
             bind,
         } => {
             tracing::info!("Starting hivefuzz node on {}:{}", bind, port);
-            hivefuzz::commands::run::run(&target, &seeds, &bind, port).await?;
+            hivefuzz::commands::run::run(&config, &seeds, &bind, port).await?;
         }
-        Commands::Dev { nodes, target } => {
+        Commands::Dev { nodes, config } => {
             tracing::info!("Starting local dev swarm with {} nodes", nodes);
-            hivefuzz::commands::dev::run(nodes, &target).await?;
+            hivefuzz::commands::dev::run(nodes, &config).await?;
         }
         Commands::Status { node } => {
             hivefuzz::commands::status::run(&node).await?;
