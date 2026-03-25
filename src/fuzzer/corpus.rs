@@ -111,6 +111,57 @@ impl CorpusManager {
         self.entries.is_empty()
     }
 
+    /// Load seed files from a directory into the corpus.
+    ///
+    /// Skips empty files and files over `max_file_size` bytes.
+    /// Returns the number of seeds successfully loaded.
+    pub fn load_seeds(&mut self, dir: &std::path::Path, max_file_size: u64) -> anyhow::Result<usize> {
+        use anyhow::Context;
+
+        if !dir.exists() {
+            anyhow::bail!("Seeds directory not found: {}", dir.display());
+        }
+
+        let mut loaded = 0;
+        let entries = std::fs::read_dir(dir)
+            .with_context(|| format!("Failed to read seeds directory: {}", dir.display()))?;
+
+        for entry in entries {
+            let entry = entry?;
+            let path = entry.path();
+
+            // Skip directories and hidden files
+            if path.is_dir() || path.file_name().is_some_and(|n| n.to_string_lossy().starts_with('.')) {
+                continue;
+            }
+
+            let metadata = std::fs::metadata(&path)?;
+            if metadata.len() == 0 {
+                tracing::debug!("Skipping empty seed: {}", path.display());
+                continue;
+            }
+            if metadata.len() > max_file_size {
+                tracing::warn!(
+                    "Skipping oversized seed: {} ({} bytes, max {})",
+                    path.display(),
+                    metadata.len(),
+                    max_file_size
+                );
+                continue;
+            }
+
+            let data = std::fs::read(&path)
+                .with_context(|| format!("Failed to read seed: {}", path.display()))?;
+
+            if self.add(data, 0, Some("seed".to_string()), None) {
+                loaded += 1;
+            }
+        }
+
+        tracing::info!("Loaded {} seed files from {}", loaded, dir.display());
+        Ok(loaded)
+    }
+
     /// Check if corpus needs minimization.
     pub fn needs_minimization(&self) -> bool {
         self.entries.len() > self.max_size

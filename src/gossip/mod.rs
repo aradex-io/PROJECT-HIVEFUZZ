@@ -1,5 +1,6 @@
 pub mod dissemination;
 pub mod membership;
+pub mod swim;
 pub mod transport;
 
 use std::net::SocketAddr;

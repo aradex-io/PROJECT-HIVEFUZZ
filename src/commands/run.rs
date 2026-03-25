@@ -15,7 +15,8 @@ pub async fn run(
     port: u16,
 ) -> Result<()> {
     // Load target configuration from TOML
-    let config = HivefuzzConfig::load(Path::new(config_path))?;
+    let config_file = Path::new(config_path);
+    let config = HivefuzzConfig::load(config_file)?;
     tracing::info!(
         "Loaded config from {}: target={}",
         config_path,
@@ -37,6 +38,17 @@ pub async fn run(
 
     let backend = AflBackend::new(uuid::Uuid::new_v4());
     let mut node = Node::new(Box::new(backend), gossip_config);
+
+    // Load seed corpus
+    let seeds_dir = config.seeds_dir(config_file);
+    if seeds_dir.exists() {
+        match node.load_seeds(&seeds_dir) {
+            Ok(count) => tracing::info!("Loaded {} seed files", count),
+            Err(e) => tracing::warn!("Failed to load seeds: {}", e),
+        }
+    } else {
+        tracing::info!("No seeds directory at {}", seeds_dir.display());
+    }
 
     node.init(&target_config).await?;
     node.run().await?;

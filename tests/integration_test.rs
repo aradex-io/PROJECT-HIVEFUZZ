@@ -204,3 +204,94 @@ async fn test_gossip_transport_multicast() {
     assert!(matches!(msg2.message, GossipMessage::Join { .. }));
     assert!(matches!(msg3.message, GossipMessage::Join { .. }));
 }
+
+#[test]
+fn test_seed_corpus_loading() {
+    let dir = tempfile::tempdir().unwrap();
+    let seeds_dir = dir.path().join("seeds");
+    std::fs::create_dir(&seeds_dir).unwrap();
+
+    // Create seed files
+    std::fs::write(seeds_dir.join("seed1.txt"), b"hello world").unwrap();
+    std::fs::write(seeds_dir.join("seed2.bin"), b"\x00\x01\x02\x03").unwrap();
+    std::fs::write(seeds_dir.join("seed3.txt"), b"another seed input").unwrap();
+    // Empty file should be skipped
+    std::fs::write(seeds_dir.join("empty.txt"), b"").unwrap();
+    // Hidden file should be skipped
+    std::fs::write(seeds_dir.join(".hidden"), b"hidden").unwrap();
+
+    let node_id = Uuid::new_v4();
+    let mut corpus = CorpusManager::new(node_id, 1000);
+    let loaded = corpus.load_seeds(&seeds_dir, 1_048_576).unwrap();
+
+    assert_eq!(loaded, 3); // 3 valid seeds (empty and hidden skipped)
+    assert_eq!(corpus.len(), 3);
+}
+
+#[tokio::test]
+async fn test_swim_two_node_discovery() {
+    use hivefuzz::gossip::membership::MembershipList;
+    use hivefuzz::gossip::swim::SwimController;
+    use hivefuzz::gossip::GossipConfig;
+
+    let seed_id = Uuid::new_v4();
+    let joiner_id = Uuid::new_v4();
+
+    // Create transports on random ports
+    let mut t_seed = Transport::new(TransportConfig {
+        udp_addr: "127.0.0.1:0".parse().unwrap(),
+        max_udp_size: 65507,
+    });
+    let mut t_joiner = Transport::new(TransportConfig {
+        udp_addr: "127.0.0.1:0".parse().unwrap(),
+        max_udp_size: 65507,
+    });
+
+    let mut rx_seed = t_seed.start().await.unwrap();
+    let mut rx_joiner = t_joiner.start().await.unwrap();
+
+    let seed_addr = t_seed.local_addr().unwrap();
+    let joiner_addr = t_joiner.local_addr().unwrap();
+
+    let seed_config = GossipConfig {
+        bind_addr: seed_addr,
+        ..Default::default()
+    };
+
+    let mut swim_seed = SwimController::new(seed_id, seed_addr, seed_config.clone());
+    let mut swim_joiner = SwimController::new(joiner_id, joiner_addr, GossipConfig {
+        bind_addr: joiner_addr,
+        ..Default::default()
+    });
+
+    let mut membership_seed = MembershipList::new(seed_id, seed_config);
+    let mut membership_joiner = MembershipList::new(joiner_id, GossipConfig {
+        bind_addr: joiner_addr,
+        ..Default::default()
+    });
+
+    // Step 1: Joiner sends Join to seed
+    swim_joiner.bootstrap(&[seed_addr], &t_joiner).await;
+
+    // Step 2: Seed receives Join, handles it (adds joiner + sends MembershipSync)
+    let join_msg = tokio::time::timeout(std::time::Duration::from_secs(2), rx_seed.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    swim_seed
+        .handle_message(&join_msg.message, join_msg.source, &mut membership_seed, &t_seed)
+        .await;
+
+    // Step 3: Joiner receives MembershipSync, learns about seed
+    let sync_msg = tokio::time::timeout(std::time::Duration::from_secs(2), rx_joiner.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    swim_joiner
+        .handle_message(&sync_msg.message, sync_msg.source, &mut membership_joiner, &t_joiner)
+        .await;
+
+    // Both nodes should know about each other
+    assert_eq!(membership_seed.alive_count(), 1);
+    assert_eq!(membership_joiner.alive_count(), 1);
+}
