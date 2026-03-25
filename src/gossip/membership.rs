@@ -142,6 +142,36 @@ impl MembershipList {
         self.peers.is_empty()
     }
 
+    /// Select alive peers for indirect ping (excluding the target).
+    /// Used for PingReq: ask other peers to ping a suspected peer on our behalf.
+    pub fn select_ping_req_targets(&self, exclude: &Uuid) -> Vec<PeerInfo> {
+        use rand::prelude::SliceRandom;
+
+        let alive: Vec<_> = self
+            .peers
+            .values()
+            .filter(|p| p.info.state == PeerState::Alive && p.info.id != *exclude)
+            .map(|p| p.info.clone())
+            .collect();
+
+        let mut rng = rand::thread_rng();
+        let mut selected = alive;
+        selected.shuffle(&mut rng);
+        // Use fewer delegates than fanout — typically 1-2
+        selected.truncate(self.config.fanout.min(2));
+        selected
+    }
+
+    /// Get the address of a specific peer.
+    pub fn peer_addr(&self, id: &Uuid) -> Option<SocketAddr> {
+        self.peers.get(id).map(|p| p.info.addr)
+    }
+
+    /// Get the gossip config.
+    pub fn config(&self) -> &GossipConfig {
+        &self.config
+    }
+
     /// Number of alive peers.
     pub fn alive_count(&self) -> usize {
         self.peers

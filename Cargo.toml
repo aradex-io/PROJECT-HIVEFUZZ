@@ -26,6 +26,9 @@ xxhash-rust = { version = "0.8", features = ["xxh3"] }
 # Crash storage
 rusqlite = { version = "0.32", features = ["bundled"] }
 
+# Configuration
+toml = "0.8"
+
 # CLI
 clap = { version = "4", features = ["derive"] }
 

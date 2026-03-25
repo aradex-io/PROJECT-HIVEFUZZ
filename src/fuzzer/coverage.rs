@@ -40,6 +40,11 @@ impl CoverageBitmap {
         &self.map
     }
 
+    /// Get mutable access to raw bitmap bytes.
+    pub fn as_bytes_mut(&mut self) -> &mut [u8] {
+        &mut self.map
+    }
+
     /// Count the number of edges (non-zero entries) in the bitmap.
     pub fn count_edges(&self) -> u32 {
         self.map.iter().filter(|&&b| b != 0).count() as u32

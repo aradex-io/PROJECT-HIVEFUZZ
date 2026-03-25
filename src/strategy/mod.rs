@@ -1,4 +1,5 @@
 pub mod fitness;
+pub mod mutator;
 
 use std::collections::HashMap;
 
