@@ -97,7 +97,7 @@ that the bitflippers can't reach.
 4. **LLM-assisted engine — two viable shapes.**
    - **Shape 1 (recommended first):** LLM as a **mutator plugin**, not a full backend. Add a new `MutationType::LlmRewrite` that calls an LLM (Claude via Anthropic SDK) to produce a grammar-aware variant of a corpus entry. The existing AFL++/libFuzzer backend still executes it. Use Exp3 to down-weight it automatically if it's not producing coverage gains per token of budget.
    - **Shape 2 (later):** **LlmBackend** — a full backend that swaps the random mutator for an LLM-driven one and runs a thin harness loop. Useful for "LLM-only specialist" nodes in a hybrid swarm.
-   - **Budget & safety:** LLM calls are rate-limited (e.g., ≤1 call per N seconds, configurable) and bounded by cost caps. Cache by input hash to avoid duplicate spend. **Never** send target binaries or crash dumps to the LLM — only inputs and, optionally, a target-grammar hint the operator provides in `hivefuzz.toml`.
+   - **Budget:** LLM calls are rate-limited (e.g., ≤1 call per N seconds, configurable) and bounded by cost caps. Cache by input hash to avoid duplicate spend. (Previous draft included a no-binaries / no-crash-dumps security boundary; this is **revoked** — operator runs on dedicated rigs, so stack traces, crash dumps, and target source may be used as LLM context. See `19APR2026-top-10-fuzzer-survey.md` Decision 1.)
 
 5. **Coverage reconciliation across engines.**
    This is the real design problem. AFL++ uses a 64KB edge-id-indexed bitmap
@@ -228,9 +228,12 @@ This slots **after** MVS (Sprints 3–4) and builds on Sprint 5's scale work.
    design — cross-engine bitmap merging is not semantically defined.
 3. **LLM-assisted fuzzing enters as a mutator plugin first (Shape 1), a full
    backend second (Shape 2).** Lower blast radius; easier to bound cost.
-4. **No LLM call ever ships target binaries, full crash dumps, or memory
-   contents to a third-party API.** Only the raw input bytes and an
-   operator-provided grammar hint. Document this as a security boundary.
+4. **~~No LLM call ever ships target binaries, full crash dumps, or memory
+   contents to a third-party API.~~** **REVOKED** 19APR2026 — operator runs
+   HIVEFUZZ on dedicated rigs / isolated VMs, so the third-party-API
+   exposure threat model doesn't apply. LLM prompts may include stack
+   traces, crash dumps, target source, and any other context that improves
+   mutation quality. Cost control (Decision 7 of the review) still applies.
 5. **AFL++ remains the default backend.** No breaking config changes — an
    existing `hivefuzz.toml` without a `backend` field keeps working.
 6. **Honggfuzz stays deferred** relative to libFuzzer and LLM work. Its unique

@@ -50,16 +50,11 @@ fitness bucket, not the main Exp3 pool. Selection becomes "budget-based"
 (every N seconds, run one LLM mutation regardless of Exp3 weight) rather
 than weight-based. Plan should make this explicit.
 
-### 3. "No binaries, no crash dumps" is easy to violate accidentally  *(medium impact)*
-Stack traces routinely contain function names from the target binary, which
-leak target identity. Crash *inputs* can contain sensitive data from prior
-fuzzing (e.g., tokens from corpus). Telling the LLM "this input produced this
-stack trace, suggest mutations" is an obvious footgun.
-
-**Mitigation:** Sprint 7 should include a redaction layer for any LLM prompt:
-strip stack traces, strip memory addresses, warn if input size > configured
-threshold. Add a test that intentionally feeds a stack trace and asserts it's
-redacted before any SDK call.
+### 3. ~~"No binaries, no crash dumps" is easy to violate accidentally~~ — **REVOKED 19APR2026**
+Operator clarified HIVEFUZZ runs on dedicated rigs / isolated VMs; third-party-API
+exposure is not in the threat model. LLM prompts may freely include stack traces,
+memory addresses, target source, and crash dumps — they meaningfully improve
+mutation quality. The redaction test is not required.
 
 ### 4. Heterogeneous SWIM membership complicates failure detection  *(low impact)*
 If an LLM node takes 30s to respond (waiting on API), SWIM's ping/ack will
@@ -116,7 +111,7 @@ counter `hivefuzz_llm_spend_usd_total`. Treat this as acceptance criteria.
 1. **Approve the plan as-is.** Risks above are operational, not structural.
 2. **Cohort identity = (backend_kind, target_binary_hash)** (addresses Edge Case 2). Bake into `GossipMessage` tagging from Sprint 6 day one.
 3. **LLM fitness is a separate bucket, not part of Exp3** (addresses Risk §2). Codify in Sprint 7 plan.
-4. **LLM prompt redaction is a required test, not a best effort** (addresses Risk §3). Codify in Sprint 7 plan.
+4. ~~LLM prompt redaction is a required test~~ — **REVOKED 19APR2026.** Redaction is not a requirement; see Risk §3 annotation.
 5. **In-process libFuzzer requires a `libfuzzer-in-process` feature flag** (addresses Risk §6). Default build stays subprocess-only.
 
 ## Open Questions
